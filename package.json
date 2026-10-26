@@ -1,0 +1,10 @@
+{
+  "name": "parkvision",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm --prefix frontend run build",
+    "start": "node backend/server.js",
+    "test": "node --test backend/tests/*.test.js"
+  }
+}

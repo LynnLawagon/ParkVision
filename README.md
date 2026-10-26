@@ -1,102 +1,96 @@
 # ParkVision
 
-ParkVision is a parking-lot monitoring prototype. It gives customers a live-style view of parking availability and gives parking personnel tools for reviewing stall status, alerts, and configured parking regions.
+Parking occupancy monitoring for Luzano Compound using administrator-defined
+virtual spaces and the trained S2 EfficientNetB0 model.
 
-The repository now has one frontend application and one draft API:
+The local software now connects React, Supabase Auth/database, Express, and a
+persistent Python inference worker. There is no random parking-data fallback.
 
-```
-frontend/   React + Vite interface
-backend/    Express API with in-memory data
-```
+## First setup
 
-## Program Summary
+Your existing Supabase schema and 12–15-space layout can be kept. Fill the three
+Supabase values in **`backend/.env`**, then create your first administrator in
+Supabase Auth and assign its profile the `parking_administrator` role.
 
-The frontend currently runs independently with mock parking-lot data. Its main flows are:
+See **[Run the connected app](docs/run-connected-app.md)** for the exact steps,
+administrator SQL, and the complete first image-to-dashboard walkthrough.
 
-- Customer view with available, occupied, and blocked parking stalls.
-- Personnel sign-in screen.
-- Personnel dashboard with stall totals and obstruction alerts.
-- Region configuration view for defining parking-space areas.
-- Shared visual components for stall grids, status chips, summaries, and legends.
+## Run locally
 
-The backend is a draft Express service intended to receive results from a future computer-vision or machine-learning service. It stores stall, alert, region, and audit data in memory, so all changes reset when the server restarts. The frontend is not connected to these API routes yet.
+Requires Node.js 22.12+ and Python 3.11 with the ML dependencies. The existing
+Python environment on this Mac is `~/.venvs/parkvision-ml`.
 
-## Requirements
-
-- Node.js 18 or newer
-- npm
-
-## Run the Program
-
-Run the frontend and backend in separate terminals from the repository root.
-
-### 1. Start the frontend
-
-```powershell
-cd frontend
-npm install
+```bash
+npm --prefix backend install
+npm --prefix frontend install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in a browser. The frontend can be run by itself because it currently uses mock data.
+Open **http://localhost:5173**. The backend runs on port 4000 and starts the model
+worker automatically. The Connection setup page reports missing configuration
+and model errors instead of displaying fabricated results.
 
-### 2. Start the backend
+The model is read from `ml/models/parkvision_efficientnetb0.keras`, or the
+`MODEL_PATH` environment variable. Model binaries, `.env` files, generated builds,
+and installed dependencies are ignored by Git. Keep your model export backed up.
 
-In a second terminal:
+## What works
 
-```powershell
-cd backend
-npm install
+- Public parking availability read from Supabase, refreshed every two seconds.
+- Missing/stale observations marked Unverified and excluded from available counts.
+- Email/password Supabase sign-in; profile-based personnel and administrator access.
+- Camera selection/creation and a reference-image or video-frame workspace.
+- Draw, redraw, save, and archive normalized parking regions in Supabase.
+- Actual batched EfficientNet inference on the selected crops, with RGB 224×224
+  preprocessing matching S2 and model loading only once per backend process.
+- Per-space model scores, low-score review handling, and explicit publication to
+  `camera_frames` / `space_observations`.
+- Recorded-video replay with optional automatic publication of accepted results.
+- Device-camera capture and monitoring, with explicit browser permission and
+  optional publication. A phone needs the app served over HTTPS.
+- Existing obstruction-event acknowledgements and administrator region history.
+
+Images/video files stay local to the workspace and are not stored in Supabase by
+this version. Reupload a reference after a page reload; saved geometry persists.
+Camera framing must remain fixed for that geometry.
+
+## Remaining project work
+
+- Add your real Supabase credentials and administrator account to verify the hosted
+  connection. No credentials are committed to the repository.
+- Calibrate the real 12–15 positions from the mounted-phone view and validate on
+  representative daytime/nighttime data. The seed's two rectangles are samples.
+- Address the real-photo empty-space misclassification through site evaluation and
+  potentially fine-tuning; the review threshold is not a measured accuracy guarantee.
+- Add non-vehicle obstruction recognition. The current S2 winner is binary and
+  cannot fulfill the original three-class requirement by itself.
+- Set up HTTPS hosting/access for the mounted phone and test its live capture.
+  Uploaded media and browser camera capture use the same inference pipeline.
+
+## Verification and production build
+
+```bash
+npm test
+npm run build
 npm start
 ```
 
-The API listens on [http://localhost:4000](http://localhost:4000). Its health check is available at [http://localhost:4000/api/health](http://localhost:4000/api/health).
+The built app is served at http://localhost:4000. API tests run with isolated
+database/auth fixtures; an additional test uses the actual model and supplied night
+photo when available. Tests never write into the hosted Supabase project.
 
-For automatic server restarts during backend development, use:
+## Project layout
 
-```powershell
-npm run dev
+```text
+frontend/              React + Vite interface and Supabase client
+backend/               Express auth, API, publication, and worker bridge
+ml/worker.py           TensorFlow/Keras inference process
+ml/models/             Local trained model (binary ignored by Git)
+supabase/migrations/   Original normalized schema and access controls
+supabase/seed.sql      Rerunnable 12–15-space Luzano layout
+supabase/tests/        Transactional SQL checks
+docs/                  Setup, ERD, and ML integration documentation
 ```
 
-The frontend and backend are separate processes. Starting the backend does not yet replace the frontend's mock data.
-
-## Frontend Commands
-
-Run these from `frontend/`:
-
-```powershell
-npm run dev       # Start the Vite development server
-npm run build     # Create a production build in dist/
-npm run preview   # Preview the production build locally
-```
-
-Important frontend locations:
-
-- `src/App.jsx` - top-level application shell and screen switching.
-- `src/screens/` - customer, login, personnel, and regions screens.
-- `src/components/` - reusable parking-lot UI components.
-- `src/data/mockData.js` - current placeholder parking data.
-- `src/styles/tokens.js` - shared colors, spacing, and typography tokens.
-
-## Backend API
-
-| Method | Route | Purpose |
-|---|---|---|
-| `POST` | `/api/auth/login` | Authenticate personnel and return a JWT. |
-| `GET` | `/api/stalls` | Return the current status of every stall. |
-| `GET` | `/api/stalls/summary` | Return vacant, occupied, and blocked totals. |
-| `PUT` | `/api/stalls/:id` | Update a stall classification from a CV/ML service. |
-| `GET` | `/api/alerts` | Return current obstruction alerts. |
-| `POST` | `/api/alerts/:id/acknowledge` | Acknowledge an alert. |
-| `GET`, `POST`, `PATCH`, `DELETE` | `/api/regions` | Read and manage parking-space regions. |
-| `GET` | `/api/regions/log` | Return the region-change audit log. |
-
-The draft login credentials are username `j.cruz` and password `change-me`. Change these before using real data.
-
-## Current Limitations
-
-- The frontend uses mock data and is not yet wired to the backend.
-- The backend uses an in-memory store; data is lost on restart.
-- No camera ingestion or computer-vision service is included yet.
-- Authentication and role checks are prototype-level only.
-- The backend still needs production concerns such as a database, rate limiting, secure secrets, and HTTPS.
+Database design: [Normalized ERD and access rules](docs/database.md).
+Experiment/export background: [ML integration](docs/ml-integration.md).

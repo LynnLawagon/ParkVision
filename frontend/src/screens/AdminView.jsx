@@ -1,147 +1,55 @@
-import React, { useState, useMemo } from "react";
-import { LayoutGrid, Settings, LogOut, TriangleAlert } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import SummaryBar from "../components/SummaryBar";
-import Legend from "../components/Legend";
-import LotGrid from "../components/LotGrid";
-import RegionsTab from "./RegionsTab";
-import { COLORS, FONTS } from "../styles/tokens";
-import { ZONES, STATUS, TREND } from "../data/mockData";
-
-// Replace `stalls` with data from GET /api/stalls (polled every few
-// seconds, or pushed over a socket) and `alerts` with GET /api/alerts
-// once the backend is wired up.
-export default function AdminView({ stalls, onSignOut }) {
-  const [tab, setTab] = useState("overview");
-  const [zone, setZone] = useState("all");
-  const alerts = useMemo(() => stalls.filter((s) => s.status === STATUS.BLOCKED), [stalls]);
-  const [acked, setAcked] = useState({});
-
-  return (
-    <div style={{ background: COLORS.asphalt, minHeight: 640, fontFamily: FONTS.body, color: "#fff" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 26px", borderBottom: `1px solid ${COLORS.asphaltLine}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 26 }}>
-          <div style={{ fontFamily: FONTS.display, fontWeight: 700, fontSize: 18 }}>
-            ParkVision <span style={{ color: "#8A9099", fontWeight: 500 }}>· Personnel</span>
-          </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            {[
-              { id: "overview", label: "Overview", icon: LayoutGrid },
-              { id: "regions", label: "Manage regions", icon: Settings },
-            ].map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  fontSize: 13,
-                  background: tab === t.id ? COLORS.asphaltCard : "transparent",
-                  color: tab === t.id ? "#fff" : "#8A9099",
-                }}
-              >
-                <t.icon size={14} /> {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ fontSize: 13, color: "#A9AEB4" }}>J. Cruz — Parking Administrator</span>
-          <button onClick={onSignOut} style={{ display: "flex", alignItems: "center", gap: 6, border: "none", background: "transparent", color: "#8A9099", cursor: "pointer", fontSize: 13 }}>
-            <LogOut size={14} /> Sign out
-          </button>
-        </div>
-      </div>
-
-      {tab === "overview" ? (
-        <div style={{ display: "flex", gap: 24, padding: 26, alignItems: "flex-start" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <SummaryBar stalls={stalls} dark={true} />
-
-            <div style={{ background: COLORS.asphaltCard, borderRadius: 12, padding: 20, marginTop: 20, border: `1px solid ${COLORS.asphaltLine}` }}>
-              <div style={{ fontSize: 13, color: "#8A9099", marginBottom: 10 }}>Occupancy today</div>
-              <ResponsiveContainer width="100%" height={140}>
-                <LineChart data={TREND} margin={{ top: 4, right: 6, left: -20, bottom: 0 }}>
-                  <CartesianGrid stroke={COLORS.asphaltLine} vertical={false} />
-                  <XAxis dataKey="t" stroke="#8A9099" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#8A9099" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ background: COLORS.asphalt, border: `1px solid ${COLORS.asphaltLine}`, borderRadius: 8, fontSize: 12 }} />
-                  <Line type="monotone" dataKey="occ" stroke={COLORS.paint} strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "22px 0 14px" }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                {["all", ...ZONES].map((z) => (
-                  <button
-                    key={z}
-                    onClick={() => setZone(z)}
-                    style={{
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "6px 13px",
-                      borderRadius: 20,
-                      fontSize: 13,
-                      background: zone === z ? "#fff" : "transparent",
-                      color: zone === z ? COLORS.asphalt : "#8A9099",
-                    }}
-                  >
-                    {z === "all" ? "All zones" : `Zone ${z}`}
-                  </button>
-                ))}
-              </div>
-              <Legend dark={true} />
-            </div>
-            <LotGrid stalls={stalls} dark={true} activeZone={zone} />
-          </div>
-
-          <div style={{ width: 300, flexShrink: 0, background: COLORS.asphaltCard, borderRadius: 12, border: `1px solid ${COLORS.asphaltLine}`, padding: 18 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <TriangleAlert size={16} color={COLORS.blocked} />
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Obstruction alerts</span>
-            </div>
-            <div style={{ fontSize: 12, color: "#8A9099", marginBottom: 14 }}>Non-vehicle objects detected in a parking space</div>
-            {alerts.length === 0 && <div style={{ fontSize: 13, color: "#8A9099" }}>No active alerts.</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {alerts.map((a) => (
-                <div key={a.id} style={{ background: COLORS.asphalt, borderRadius: 10, padding: 12, border: `1px solid ${acked[a.id] ? COLORS.asphaltLine : COLORS.blocked}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                    <span style={{ fontWeight: 600 }}>Space {a.id}</span>
-                    <span style={{ color: "#8A9099" }}>{a.updated}</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "#A9AEB4", marginTop: 4 }}>Confidence {a.confidence}% · Zone {a.zone}</div>
-                  <button
-                    onClick={() => setAcked((p) => ({ ...p, [a.id]: true }))}
-                    disabled={!!acked[a.id]}
-                    style={{
-                      marginTop: 10,
-                      width: "100%",
-                      padding: "7px 0",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      cursor: acked[a.id] ? "default" : "pointer",
-                      border: "none",
-                      background: acked[a.id] ? "transparent" : COLORS.paint,
-                      color: acked[a.id] ? "#6B9C6B" : COLORS.asphalt,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {acked[a.id] ? "Acknowledged" : "Acknowledge"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <RegionsTab />
-      )}
-    </div>
-  );
+import React, { useEffect, useState } from 'react';
+import { LayoutGrid, ScanLine, Bell, History } from 'lucide-react';
+import CustomerView from './CustomerView';
+import RegionsTab from './RegionsTab';
+import { age, roleNames, unwrap } from '../lib/api';
+export default function AdminView({ client, session, profile, lot, lots, lotId, onLotChange, stalls, config, onRefresh, parkingError }) {
+  const [tab, setTab] = useState('workspace');
+  const [items, setItems] = useState([]);
+  const [error, setError] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  const isAdmin = profile.role_code === 'parking_administrator';
+  useEffect(() => {
+    if (!['alerts', 'audit'].includes(tab)) return;
+    let active = true;
+    setItems([]); setError('');
+    (async () => {
+      try {
+        if (tab === 'audit') {
+          const data = unwrap(await client.from('region_change_log').select('*').order('changed_at', { ascending: false }).limit(100));
+          if (active) setItems(data);
+        } else {
+          const data = unwrap(await client.from('obstruction_alerts').select('*, alert_acknowledgements(*)').is('resolution_observation_id', null));
+          const ids = data.map(item => item.opening_observation_id);
+          const observations = ids.length ? unwrap(await client.from('space_observations').select('id, parking_region_id').in('id', ids)) : [];
+          const regionIds = observations.map(item => item.parking_region_id);
+          const regions = regionIds.length ? unwrap(await client.from('parking_regions').select('id, parking_space_id').in('id', regionIds)) : [];
+          const result = data.map(item => {
+            const observation = observations.find(o => o.id === item.opening_observation_id);
+            const region = regions.find(r => r.id === observation?.parking_region_id);
+            return { ...item, space: stalls.find(s => s.id === region?.parking_space_id) };
+          }).filter(item => item.space);
+          if (active) setItems(result);
+        }
+      } catch (error) { if (active) setError(error.message); }
+    })();
+    return () => { active = false; };
+  }, [tab, refresh, client, lotId]);
+  async function acknowledge(id) {
+    try { unwrap(await client.rpc('acknowledge_alert', { p_alert_id: id })); setRefresh(n => n + 1); }
+    catch (error) { setError(error.message); }
+  }
+  const tabs = [{ id: 'workspace', label: 'Camera workspace', icon: ScanLine }, { id: 'overview', label: 'Availability', icon: LayoutGrid }, { id: 'alerts', label: 'Alerts', icon: Bell }, ...(isAdmin ? [{ id: 'audit', label: 'Region history', icon: History }] : [])];
+  return <main className="page personnel-page"><div className="page-heading"><div><div className="eyebrow">PERSONNEL WORKSPACE</div><h1>Make every space visible.</h1><p className="muted">{profile.display_name || session.user.email} · {roleNames[profile.role_code]}</p></div>
+    <label className="lot-picker">Parking area<select value={lotId} onChange={event => onLotChange(event.target.value)}>{lots.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
+    <div className="workspace-tabs">{tabs.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? 'selected' : ''} onClick={() => setTab(id)}><Icon size={16} />{label}</button>)}</div>
+    {tab === 'workspace' && <RegionsTab client={client} session={session} isAdmin={isAdmin} lot={lot} spaces={stalls} config={config} onPublished={onRefresh} />}
+    {tab === 'overview' && <CustomerView embedded stalls={stalls} lot={lot} error={parkingError} />}
+    {['alerts', 'audit'].includes(tab) && <section className="panel"><div className="section-heading"><h2>{tab === 'alerts' ? 'Active obstruction alerts' : 'Parking-region audit trail'}</h2><button onClick={() => setRefresh(n => n + 1)}>Refresh</button></div>
+      {error && <div className="notice error" role="alert">{error}</div>}
+      {tab === 'alerts' && <p className="muted">The current binary model does not generate obstruction detections. This panel shows any recorded obstruction events.</p>}
+      {!items.length && !error && <div className="empty-state">{tab === 'alerts' ? 'No active alerts for this parking area.' : 'No region changes recorded yet.'}</div>}
+      {items.map(item => tab === 'alerts' ? <div className="list-row" key={item.id}><div><strong>Space {item.space.code}</strong><p className="muted">Non-vehicle obstruction</p></div>{item.alert_acknowledgements ? <span className="badge good">Acknowledged</span> : <button onClick={() => acknowledge(item.id)}>Acknowledge</button>}</div> : <details className="audit-row" key={item.id}><summary><strong>{item.action}</strong> · {item.new_values?.id?.slice(0, 8) || item.region_id.slice(0, 8)} <span className="muted">{age(item.changed_at)} · {item.changed_by ? `Account ${item.changed_by.slice(0, 8)}` : 'System'}</span></summary><pre>{JSON.stringify({ before: item.old_values, after: item.new_values }, null, 2)}</pre></details>)}
+    </section>}
+  </main>;
 }
