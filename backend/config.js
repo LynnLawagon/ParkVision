@@ -1,5 +1,6 @@
 const path = require('node:path');
 const os = require('node:os');
+const { keyKind, serverKeyProblem } = require('./keyValidation');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 const clean = value => value && !value.includes('YOUR_') ? value.trim() : '';
 const config = {
@@ -12,10 +13,7 @@ const config = {
   modelPath: process.env.MODEL_PATH || path.resolve(__dirname, '../ml/models/parkvision_efficientnetb0.keras'),
   minimumConfidence: Number(process.env.MINIMUM_CONFIDENCE || 0.8),
 };
-if (config.publishableKey) {
-  let role;
-  try { role = JSON.parse(Buffer.from(config.publishableKey.split('.')[1] || '', 'base64url').toString()).role; } catch {}
-  if (config.publishableKey.startsWith('sb_secret_') || role === 'service_role') throw new Error('SUPABASE_PUBLISHABLE_KEY must be the public publishable/anon key, never a secret or service-role key.');
-}
+if (['secret', 'service_role'].includes(keyKind(config.publishableKey))) throw new Error('SUPABASE_PUBLISHABLE_KEY must be the public publishable/anon key, never a secret or service-role key.');
+config.publicationError = serverKeyProblem(config.serviceKey, config.publishableKey);
 if (!Number.isFinite(config.minimumConfidence) || config.minimumConfidence < 0.5 || config.minimumConfidence > 1) throw new Error('MINIMUM_CONFIDENCE must be between 0.5 and 1.');
 module.exports = config;

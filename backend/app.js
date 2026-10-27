@@ -23,6 +23,7 @@ function createApp(options = {}) {
   app.get('/api/config', (req, res) => res.json({
     supabaseUrl: config.supabaseUrl || '', publishableKey: config.publishableKey || '',
     configured: Boolean(publicClient), writeEnabled: Boolean(serviceClient),
+    publicationError: config.publicationError || '',
     minimumConfidence: config.minimumConfidence, model: worker.status,
   }));
   app.get('/api/health', (req, res) => res.json({ ok: true, configured: Boolean(publicClient), writeEnabled: Boolean(serviceClient), model: worker.status }));

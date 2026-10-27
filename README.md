@@ -94,3 +94,4 @@ docs/                  Setup, ERD, and ML integration documentation
 
 Database design: [Normalized ERD and access rules](docs/database.md).
 Experiment/export background: [ML integration](docs/ml-integration.md).
+Train the replacement binary classifier: [EfficientNetB0 Colab notebook and steps](notebooks/README.md).

@@ -16,6 +16,23 @@ def emit(value):
     sys.stdout.write(json.dumps(value, allow_nan=False) + "\n")
     sys.stdout.flush()
 
+def model_metadata(path):
+    """Validate the optional Colab sidecar; legacy S2 exports remain supported."""
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    sidecar = path.with_suffix('.metadata.json')
+    if not sidecar.exists():
+        return digest, {}
+    metadata = json.loads(sidecar.read_text())
+    expected = {"format_version": 1, "class_names": ["unoccupied", "occupied"],
+                "app_statuses": ["vacant", "occupied"], "occupied_threshold": 0.5,
+                "input_size": [224, 224], "color_mode": "RGB", "input_dtype": "float32",
+                "input_range": [0, 255], "resize_method": "bilinear", "preprocessing_inside_model": True}
+    if metadata.get('sha256') != digest:
+        raise ValueError("Model and metadata do not match. Copy both files from the same Colab export.")
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        raise ValueError("Model metadata does not match the app's RGB/binary input and label contract.")
+    return digest, metadata
+
 def validate_regions(regions):
     if not isinstance(regions, list) or not 1 <= len(regions) <= 100:
         raise ValueError("Choose between 1 and 100 parking regions.")
@@ -85,11 +102,12 @@ def main():
             path = Path(sys.argv[1]).expanduser().resolve()
             if not path.is_file():
                 raise ValueError("Model file missing. Place the trained .keras export in ml/models or set MODEL_PATH.")
+            digest, metadata = model_metadata(path)
             model = tf.keras.models.load_model(path, compile=False)
             if tuple(model.input_shape[1:]) != (224, 224, 3) or model.output_shape[-1] != 1:
-                raise ValueError("Expected the S2 binary model with 224×224 RGB input and one output.")
+                raise ValueError("Expected a binary model with 224×224 RGB input and one sigmoid output.")
             model(tf.zeros((1, 224, 224, 3), dtype=tf.float32), training=False)
-        info = {"name": "EfficientNetB0_PKLot", "version": hashlib.sha256(path.read_bytes()).hexdigest()[:12],
+        info = {"name": model.name, "version": digest[:12],
                 "classes": ["vacant", "occupied"], "tensorflow": tf.__version__}
         emit({"type": "ready", "model": info})
     except Exception as error:

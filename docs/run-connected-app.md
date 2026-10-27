@@ -4,6 +4,20 @@ The app uses the actual S2 EfficientNetB0 export through a persistent Python
 worker. Supabase is the single source of saved parking status. There is no demo
 login or random status fallback.
 
+## Everyday use on this Mac
+
+The Python environment and model are already installed. Skip the Python setup
+commands below unless you are setting up another computer.
+
+- If the app is already running, open **http://localhost:5173**.
+- If it is stopped, run `npm run dev` from the ParkVision project folder, then
+  open that address. Keep the terminal running.
+- Use the email/password account created under **Supabase Authentication**, not
+  the account you use to sign in to the Supabase website.
+
+`npm run build` / `npm start` is an alternative way to run the app; it is not an
+extra step after `npm run dev`. Use development mode while we finish the project.
+
 ## 1. Database credentials (one-time setup)
 
 The schema and 15-space seed are already installed in your Supabase project.
@@ -19,7 +33,11 @@ SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
 
 Copy the project URL and keys from your Supabase project's Connect/API settings.
 Use the public publishable/anon key for `SUPABASE_PUBLISHABLE_KEY`, never the
-service-role key. Only the backend receives the service key. `.env` is ignored by
+service-role key. For `SUPABASE_SERVICE_ROLE_KEY`, use a **different secret key**
+starting with `sb_secret_` (or a legacy key explicitly labeled `service_role`).
+Do not copy the publishable key into both fields. The variable retains its old
+name for compatibility, but accepts the new secret key. Only the backend receives
+this key. `.env` is ignored by
 Git; do not put the service key into a frontend/VITE variable or paste it in chat.
 
 The browser receives the URL and public key from `/api/config`; no separate
@@ -114,6 +132,12 @@ position, orientation, zoom, and framing fixed; recalibrate if they change.
 
 ## 5. Review threshold and the real-photo error
 
+To retrain EfficientNetB0 for **target vehicle present / no target vehicle**,
+use the [self-contained Colab notebook](../notebooks/README.md). It exports a
+replacement `.keras` plus matching metadata. Copy both into `ml/models/` and
+restart the app; no database reset is required. Add representative mounted-phone
+crops and inspect held-out results before claiming the night-camera error is fixed.
+
 S2 uses threshold 0.5 to choose occupied/vacant. The app additionally defaults to
 `MINIMUM_CONFIDENCE=0.80`: the predicted class score must reach 0.80 before it can
 be published. Lower-scoring predictions are marked **Needs review** and skipped.
@@ -166,9 +190,10 @@ npm run build
 
 API tests cover role checks, geometry validation, ownership, publication
 idempotency, skipped review predictions, and invalidation after calibration
-changes. A local integration test runs the saved model against the supplied night
-image when both files/environment exist, and verifies the known error is flagged
-for review. Tests use isolated fixtures; they do not write into the hosted project.
+changes. A local integration test runs the installed model against the supplied
+night image when both files/environment exist and verifies the prediction/review
+contract. The known false-positive assertion applies only to the original S2
+checksum. Tests use isolated fixtures; they do not write into the hosted project.
 
 Database rules are documented in [database.md](database.md); transactional SQL
 checks are in `supabase/tests/schema_checks.sql`. Live Supabase verification needs

@@ -1,0 +1,126 @@
+{
+  "format_version": 1,
+  "model_name": "ParkVision_EfficientNetB0_VehiclePresence",
+  "model_version": "20261027_121730",
+  "class_names": [
+    "unoccupied",
+    "occupied"
+  ],
+  "app_statuses": [
+    "vacant",
+    "occupied"
+  ],
+  "semantic_target": "target vehicle present inside the supplied crop",
+  "vehicle_categories": [
+    "car",
+    "truck",
+    "bus"
+  ],
+  "occupied_threshold": 0.5,
+  "input_size": [
+    224,
+    224
+  ],
+  "color_mode": "RGB",
+  "input_dtype": "float32",
+  "input_range": [
+    0,
+    255
+  ],
+  "resize_method": "bilinear",
+  "preprocessing_inside_model": true,
+  "tensorflow_version": "2.20.0",
+  "keras_version": "3.13.2",
+  "sha256": "a3123fee638c6f0053817bc448e9130e2895e21380339961e0027fb3556cc9dd",
+  "training": {
+    "selected_stage": "finetune",
+    "validation_loss": 0.1371987760066986,
+    "head_epochs_run": 5,
+    "fine_epochs_run": 10,
+    "selection_metric": "source-balanced validation loss"
+  },
+  "test_metrics": {
+    "threshold": 0.5,
+    "overall": {
+      "examples": 1448,
+      "unoccupied_examples": 750,
+      "occupied_examples": 698,
+      "accuracy": 0.9599447513812155,
+      "balanced_accuracy": 0.9609856733524356,
+      "precision_occupied": 0.931266846361186,
+      "recall_occupied": 0.9899713467048711,
+      "f1_occupied": 0.9597222222222223,
+      "roc_auc": 0.9792913085004775,
+      "average_precision": 0.9670997469948859,
+      "brier_score": 0.036863240135708415,
+      "confusion_matrix": [
+        [
+          699,
+          51
+        ],
+        [
+          7,
+          691
+        ]
+      ],
+      "predicted_unoccupied": 706,
+      "predicted_occupied": 742
+    },
+    "by_source": {
+      "coco": {
+        "examples": 248,
+        "unoccupied_examples": 150,
+        "occupied_examples": 98,
+        "accuracy": 0.967741935483871,
+        "balanced_accuracy": 0.9662585034013605,
+        "precision_occupied": 0.9591836734693877,
+        "recall_occupied": 0.9591836734693877,
+        "f1_occupied": 0.9591836734693877,
+        "roc_auc": 0.9913605442176869,
+        "average_precision": 0.9898242867785532,
+        "brier_score": 0.02865282336926527,
+        "confusion_matrix": [
+          [
+            146,
+            4
+          ],
+          [
+            4,
+            94
+          ]
+        ],
+        "predicted_unoccupied": 150,
+        "predicted_occupied": 98
+      },
+      "pklot": {
+        "examples": 1200,
+        "unoccupied_examples": 600,
+        "occupied_examples": 600,
+        "accuracy": 0.9583333333333334,
+        "balanced_accuracy": 0.9583333333333333,
+        "precision_occupied": 0.9270186335403726,
+        "recall_occupied": 0.995,
+        "f1_occupied": 0.9598070739549839,
+        "roc_auc": 0.9754888888888888,
+        "average_precision": 0.9619045375745187,
+        "brier_score": 0.03856005960077334,
+        "confusion_matrix": [
+          [
+            553,
+            47
+          ],
+          [
+            3,
+            597
+          ]
+        ],
+        "predicted_unoccupied": 556,
+        "predicted_occupied": 644
+      }
+    }
+  },
+  "site_test_evaluated": false,
+  "deployment_status": "candidate_requires_site_validation",
+  "save_reload_parity_passed": true,
+  "augmentation_removed": true
+}

@@ -19,6 +19,7 @@ export default function SetupView({ config, error, onRetry }) {
         <p>Open <code>backend/.env</code> (or copy the example file). Add your Supabase project URL, publishable (or anon) key, and server-only service-role key. In development, saving this file restarts the backend automatically.</p>
         <div className="check-line"><span className={config?.configured ? 'dot good' : 'dot'} />Public connection {config?.configured ? 'configured' : 'needs credentials'}</div>
         <div className="check-line"><span className={config?.writeEnabled ? 'dot good' : 'dot'} />Saving predictions {config?.writeEnabled ? 'configured' : 'needs server key'}</div>
+        {config?.publicationError && <p className="error-text" role="alert">{config.publicationError}</p>}
         <button onClick={check} disabled={checking || !config?.configured}>{checking ? 'Checking…' : 'Test database connection'}</button>
         {connection && <p role="status" className={connection.error ? 'error-text' : 'success-text'}>{connection.error || (connection.hasLayout ? 'Connected. Parking layout found.' : 'Connected. Run supabase/seed.sql to create the layout.')}</p>}
       </section>

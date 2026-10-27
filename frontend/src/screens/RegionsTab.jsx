@@ -257,7 +257,7 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
               const result = analysis?.results.find(item => item.regionId === region.id);
               const space = spaces.find(item => item.id === region.parking_space_id);
               const color = result ? colors[result.requiresReview ? 'review' : result.status] : colors.waiting;
-              const label = `${space?.code || 'Space'}${result ? ` · ${result.requiresReview ? 'review' : result.status} ${Math.round(result.confidence * 100)}%` : ''}`;
+              const label = `${space?.code || 'Space'}${result ? ` · ${result.status} ${Math.round(result.confidence * 100)}%${result.requiresReview ? ' · needs review' : ''}` : ''}`;
               return <g key={region.id} onPointerDown={event => { if (!drawing) { event.stopPropagation(); if (!disabled) chooseSpace(region.parking_space_id); } }}>
                 <rect x={region.x * 1000} y={region.y * 1000} width={region.width * 1000} height={region.height * 1000} fill={color} fillOpacity={0.10} stroke={color} strokeWidth={spaceId === region.parking_space_id ? 5 : 3} vectorEffect="non-scaling-stroke" strokeDasharray={draft?.id === region.id ? '8 5' : undefined} />
                 <rect x={region.x * 1000} y={region.y * 1000} width={Math.min(label.length * 10 + 16, 1000 - region.x * 1000)} height={32} fill={color} />
@@ -270,6 +270,7 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
         <p className="small muted">The uploaded frame stays in this workspace. Images are processed in memory; this version saves observations, not the photo or video file.</p>
       </section>
       <aside className="panel region-panel"><h2>2. Define virtual spaces</h2><p className="muted">{cameraRegions.length} configured on this camera · {spaces.length} active spaces in the area</p>
+        <p className="small muted">Frame one parking position with minimal unrelated background. Include the vehicle when occupied, but leave out the building ceiling. Keep the same box when the vehicle leaves.</p>
         {isAdmin ? <><label>Parking space<select value={spaceId} disabled={disabled} onChange={event => chooseSpace(event.target.value)}><option value="">Select a space</option>{spaces.map(space => {
           const other = allRegions.find(region => region.parking_space_id === space.id && region.camera_id !== cameraId);
           return <option value={space.id} key={space.id} disabled={Boolean(other)}>{space.code}{other ? ' · configured on another camera' : ''}</option>;
@@ -285,7 +286,7 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
         <button className="primary" disabled={!frame || !workingRegions.length || disabled || config.model?.state !== 'ready'} onClick={() => runAnalysis().catch(() => {})}><ScanLine size={17} />{busy ? 'Analyzing…' : 'Analyze this frame'}</button>
         <button disabled={!analysis?.canPublish || !accepted || disabled || Boolean(analysis.published)} onClick={() => publish().catch(() => {})}><Save size={16} />{analysis?.published ? 'Published' : `Publish ${accepted || ''} accepted result${accepted === 1 ? '' : 's'}`}</button>
       </div></div>
-      {!config.writeEnabled && <p className="notice warning">Model previews work after sign-in. Add the server-only Supabase key in backend/.env to publish results.</p>}
+      {!config.writeEnabled && <p className="notice warning">{config.publicationError || 'Model previews work after sign-in. Add the server-only Supabase key in backend/.env to publish results.'}</p>}
       {analysis && <><div className="analysis-meta"><span>{analysis.model.name} · {analysis.model.version}</span><span>{analysis.inferenceMs} ms inference</span><span>Analyzed {age(analysis.capturedAt)}</span><span>{analysis.results.length - accepted} need review</span></div>
         {!analysis.savedRegions && <p className="notice warning">This preview includes unsaved boxes. Save the regions and analyze again before publishing.</p>}
         <div className="table-scroll"><table><thead><tr><th>Space</th><th>Model prediction</th><th>Occupancy score</th><th>Class score</th><th>Action</th></tr></thead><tbody>{analysis.results.map(result => <tr key={result.regionId}><td><strong>{spaces.find(space => space.id === workingRegions.find(region => region.id === result.regionId)?.parking_space_id)?.code || result.regionId.slice(0, 8)}</strong></td><td><span className={`badge ${result.requiresReview ? 'warning' : result.status === 'vacant' ? 'good' : ''}`}>{result.status}</span></td><td>{(result.occupancyScore * 100).toFixed(1)}%</td><td>{(result.confidence * 100).toFixed(1)}%</td><td>{result.requiresReview ? 'Needs review · not published' : analysis.published ? 'Saved' : 'Eligible to publish'}</td></tr>)}</tbody></table></div>
