@@ -54,7 +54,7 @@ test('region validation rejects invalid geometry and duplicate IDs', () => {
   assert.throws(() => validateRegions([{ ...region, width: '0.3' }]));
 });
 
-async function fixture(t) {
+async function fixture(t, monitor, predictedStatus = 'occupied') {
   const cameraId = randomUUID(), good = randomUUID(), uncertain = randomUUID();
   const regions = [{ id: good, camera_id: cameraId, is_active: true, x: 0, y: 0, width: 0.4, height: 0.8 }, { id: uncertain, camera_id: cameraId, is_active: true, x: 0.5, y: 0, width: 0.4, height: 0.8 }];
   const tables = { cameras: [{ id: cameraId, is_active: true }], parking_regions: regions, camera_frames: [], space_observations: [] };
@@ -62,7 +62,7 @@ async function fixture(t) {
   let modelCalls = 0;
   const worker = { status: { state: 'ready', model: { name: 'test' } }, async analyze(payload) {
     modelCalls++;
-    return { results: payload.regions.map((region, i) => ({ regionId: region.id, status: 'occupied', confidence: i ? 0.62 : 0.95, occupancyScore: i ? 0.62 : 0.95, requiresReview: i > 0 })) };
+    return { results: payload.regions.map((region, i) => ({ regionId: region.id, status: predictedStatus, confidence: i ? 0.62 : 0.95, occupancyScore: i ? 0.62 : 0.95, requiresReview: i > 0 })) };
   } };
   const authorize = (req, res, next) => {
     const role = req.headers.authorization?.slice(7);
@@ -71,7 +71,7 @@ async function fixture(t) {
     req.profile = { role_code: role === 'admin' ? 'parking_administrator' : 'parking_personnel' };
     req.db = db; next();
   };
-  const server = createApp({ worker, publicClient: null, serviceClient: db, authorize }).listen(0, '127.0.0.1');
+  const server = createApp({ worker, monitor, publicClient: null, serviceClient: db, authorize }).listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -118,8 +118,30 @@ test('changing a saved region invalidates an earlier preview', async t => {
   assert.equal((await f.publish(preview.body.analysisId)).status, 400);
   assert.equal(f.tables.space_observations.length, 0);
 });
+test('background CCTV monitoring blocks conflicting uploads and old manual publications', async t => {
+  let running = false;
+  const f = await fixture(t, { status: () => ({ running }) });
+  const preview = await f.analyze(); assert.equal(preview.status, 200);
+  running = true;
+  assert.equal((await f.analyze()).status, 409);
+  assert.equal((await f.publish(preview.body.analysisId)).status, 409);
+  assert.equal(f.tables.space_observations.length, 0);
+});
 test('configuration response never includes the server key', async t => {
   const f = await fixture(t); const config = await (await fetch(`${f.base}/api/config`)).json();
   assert.equal(config.writeEnabled, true);
   assert.equal('serviceKey' in config, false); assert.equal('serviceRoleKey' in config, false);
+});
+
+test('accepted obstruction results publish blocked and uncertain obstructions are skipped', async t => {
+  const f = await fixture(t, null, 'blocked');
+  const preview = await f.analyze();
+  assert.equal(preview.status, 200);
+  assert.equal(preview.body.results[0].status, 'blocked');
+  const saved = await f.publish(preview.body.analysisId);
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.saved, 1);
+  assert.equal(saved.body.skipped, 1);
+  assert.equal(f.tables.space_observations[0].status, 'blocked');
+  assert.equal(f.tables.space_observations.length, 1);
 });

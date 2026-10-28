@@ -6,7 +6,7 @@ const os = require('node:os');
 const config = require('../config');
 const { ModelWorker } = require('../services/modelWorker');
 const source = process.env.ML_TEST_IMAGE || path.join(os.homedir(), 'Downloads', 'att.kEohp7BzXo0SP9pkA7B3RvQYQI960uS6vOdUbdzv2-I.JPG');
-test('installed model obeys the binary inference/review contract on a real photo', { skip: !fs.existsSync(config.python) || !fs.existsSync(config.modelPath) || !fs.existsSync(source), timeout: 120000 }, async t => {
+test('installed model obeys the declared inference/review contract on a real photo', { skip: !fs.existsSync(config.python) || !fs.existsSync(config.modelPath) || !fs.existsSync(source), timeout: 120000 }, async t => {
   const worker = new ModelWorker(); t.after(() => worker.stop()); worker.start();
   while (worker.status.state === 'loading') await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(worker.status.state, 'ready', worker.status.error);
@@ -15,8 +15,12 @@ test('installed model obeys the binary inference/review contract on a real photo
   assert.equal(result.results.length, 1);
   const prediction = result.results[0];
   assert.ok(Number.isFinite(prediction.occupancyScore) && prediction.occupancyScore >= 0 && prediction.occupancyScore <= 1);
-  assert.equal(prediction.status, prediction.occupancyScore >= 0.5 ? 'occupied' : 'vacant');
-  assert.equal(prediction.confidence, Math.max(prediction.occupancyScore, 1 - prediction.occupancyScore));
+  const classes = result.model.classes;
+  assert.deepEqual(Object.keys(prediction.classScores), classes);
+  const winner = classes.reduce((best, name) => prediction.classScores[name] > prediction.classScores[best] ? name : best, classes[0]);
+  if (classes.length === 3) assert.equal(prediction.status, winner);
+  else assert.equal(prediction.status, prediction.occupancyScore >= 0.5 ? 'occupied' : 'vacant');
+  assert.equal(prediction.confidence, Math.max(...Object.values(prediction.classScores)));
   assert.equal(prediction.requiresReview, prediction.confidence < 0.8);
   // Preserve the diagnosed S2 regression only for those exact weights. A new
   // trained model is allowed to correct the old false-positive result.

@@ -12,6 +12,9 @@ const config = {
   python: process.env.ML_PYTHON || path.join(os.homedir(), '.venvs/parkvision-ml/bin/python'),
   modelPath: process.env.MODEL_PATH || path.resolve(__dirname, '../ml/models/parkvision_efficientnetb0.keras'),
   minimumConfidence: Number(process.env.MINIMUM_CONFIDENCE || 0.8),
+  cctvConfigPath: process.env.CCTV_CONFIG_PATH || path.join(__dirname, 'cctv.local.json'),
+  cctvEnabled: process.env.ENABLE_CCTV === 'true',
+  ffmpeg: process.env.FFMPEG_PATH || 'ffmpeg',
 };
 if (['secret', 'service_role'].includes(keyKind(config.publishableKey))) throw new Error('SUPABASE_PUBLISHABLE_KEY must be the public publishable/anon key, never a secret or service-role key.');
 config.publicationError = serverKeyProblem(config.serviceKey, config.publishableKey);

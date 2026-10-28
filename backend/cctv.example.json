@@ -1,0 +1,9 @@
+[
+  {
+    "cameraId": "40000000-0000-4000-8000-000000000001",
+    "type": "rtsp",
+    "source": "rtsp://CAMERA_USER:CAMERA_PASSWORD@192.168.1.100:554/REPLACE_WITH_VENDOR_STREAM_PATH",
+    "autoStart": false,
+    "publish": false
+  }
+]

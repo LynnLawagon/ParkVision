@@ -11,3 +11,4 @@ ml/models/*.h5
 output/
 test-results/
 .DS_Store
+backend/cctv.local.json

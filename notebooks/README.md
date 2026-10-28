@@ -1,3 +1,13 @@
+# Three-class obstruction notebook
+
+For the next project phase, use [ParkVision_EfficientNetB0_Obstruction_ThreeClass.ipynb](ParkVision_EfficientNetB0_Obstruction_ThreeClass.ipynb). It trains only EfficientNetB0 for **vacant / occupied by vehicle / blocked by non-vehicle object** and uses the same saved app boxes. It downloads PKLot, Open Images and TraCon cone data, and accepts optional labeled site crops. Full steps and limitations: [obstruction-training.md](../docs/obstruction-training.md).
+
+Upload it to Colab, select T4 GPU, then Run all. Review actual metrics, download the ZIP, replace both matching model/metadata files and restart the app. Creating the notebook does not train new weights. Keep your database.
+
+Developer regeneration: `python scripts/build_obstruction_notebook.py`; mechanics check: `python -m scripts.smoke_obstruction_training` (temporary synthetic fixtures, never deployment weights or measured accuracy).
+
+---
+
 # Train the replacement EfficientNetB0
 
 Use [ParkVision_EfficientNetB0_VehiclePresence.ipynb](ParkVision_EfficientNetB0_VehiclePresence.ipynb).

@@ -2,9 +2,10 @@ const express = require('express');
 const multer = require('multer');
 const { randomUUID } = require('node:crypto');
 const { UUID, badRequest, validateRegions, geometryMatches } = require('../validation');
+const { writeObservations } = require('../services/observations');
 const wrap = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
-function inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence }) {
+function inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence, monitor }) {
   const router = express.Router();
   const analyses = new Map();
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 1, fields: 4, fieldSize: 65536 } });
@@ -15,6 +16,7 @@ function inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence }
     if (!UUID.test(req.body.cameraId || '')) throw badRequest('Choose a camera.');
     const camera = check(await req.db.from('cameras').select('id, is_active').eq('id', req.body.cameraId).single());
     if (!camera?.is_active) throw badRequest('This camera is inactive.');
+    if (monitor?.status(camera.id).running) throw Object.assign(new Error('Stop CCTV monitoring for this camera before analyzing uploaded media or a device-camera frame.'), { status: 409 });
     let regions;
     try { regions = validateRegions(JSON.parse(req.body.regions || '[]')); }
     catch (error) { throw error.status ? error : badRequest('Invalid parking regions.'); }
@@ -35,6 +37,7 @@ function inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence }
     if (!serviceClient) throw Object.assign(new Error('Add SUPABASE_SERVICE_ROLE_KEY to backend/.env to save observations.'), { status: 503 });
     const analysis = analyses.get(req.body.analysisId);
     if (!analysis || analysis.owner !== req.user.id || Date.now() - analysis.createdAt > 600000) throw badRequest('This preview expired. Analyze the image again.');
+    if (monitor?.status(analysis.cameraId).running) throw Object.assign(new Error('This camera is now monitored by the backend. Stop CCTV monitoring before publishing a manual preview.'), { status: 409 });
     if (analysis.published) return res.json(analysis.published);
     if (analysis.publishing) throw Object.assign(new Error('This analysis is already being saved.'), { status: 409 });
     const saved = check(await req.db.from('parking_regions').select('id, x, y, width, height').eq('camera_id', analysis.cameraId).eq('is_active', true));
@@ -43,16 +46,9 @@ function inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence }
     if (!accepted.length) throw badRequest('All predictions need review. Nothing was published.');
     analysis.publishing = true;
     try {
-      // Keep one frame ID for retries. Observation writes below are a single atomic INSERT.
-      const existingFrame = check(await serviceClient.from('camera_frames').select('id').eq('id', analysis.frameId).maybeSingle());
-      if (!existingFrame) check(await serviceClient.from('camera_frames').insert({ id: analysis.frameId, camera_id: analysis.cameraId, captured_at: analysis.capturedAt }));
-      const existing = check(await serviceClient.from('space_observations').select('parking_region_id').eq('camera_frame_id', analysis.frameId));
-      if (existing.length && existing.length !== accepted.length) throw new Error('This frame has an unexpected partial write. Analyze the image again.');
-      if (!existing.length) check(await serviceClient.from('space_observations').insert(accepted.map(item => ({
-        parking_region_id: item.regionId, camera_frame_id: analysis.frameId,
-        status: item.status, confidence: item.confidence,
-      }))));
-      analysis.published = { saved: accepted.length, skipped: analysis.prediction.results.length - accepted.length, frameId: analysis.frameId, capturedAt: analysis.capturedAt };
+      analysis.published = await writeObservations(serviceClient, { frameId: analysis.frameId,
+        cameraId: analysis.cameraId, capturedAt: analysis.capturedAt, accepted,
+        skipped: analysis.prediction.results.length - accepted.length });
       res.json(analysis.published);
     } finally { analysis.publishing = false; }
   }));

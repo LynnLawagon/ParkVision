@@ -7,6 +7,7 @@ const config = require('./config');
 const db = require('./services/supabase');
 const { requireAuth, requireAdmin } = require('./middleware/requireAuth');
 const { inferenceRoutes } = require('./routes/inference');
+const { cctvRoutes } = require('./routes/cctv');
 const { validateRegions } = require('./validation');
 const wrap = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 const unwrap = response => { if (response.error) throw Object.assign(new Error(response.error.message), { status: 502 }); return response.data; };
@@ -18,6 +19,9 @@ function createApp(options = {}) {
   const authorize = options.authorize || requireAuth;
   const app = express();
   app.disable('x-powered-by');
+  // The HTTPS phone tunnel connects locally. Trust forwarded client addresses
+  // from loopback proxies only, so rate limiting also works through that tunnel.
+  app.set('trust proxy', 'loopback');
   app.use(cors({ origin: config.origin }));
   app.use(express.json({ limit: '100kb' }));
   app.get('/api/config', (req, res) => res.json({
@@ -25,6 +29,7 @@ function createApp(options = {}) {
     configured: Boolean(publicClient), writeEnabled: Boolean(serviceClient),
     publicationError: config.publicationError || '',
     minimumConfidence: config.minimumConfidence, model: worker.status,
+    cctvEnabled: config.cctvEnabled,
   }));
   app.get('/api/health', (req, res) => res.json({ ok: true, configured: Boolean(publicClient), writeEnabled: Boolean(serviceClient), model: worker.status }));
   app.get('/api/connection', wrap(async (req, res) => {
@@ -41,6 +46,7 @@ function createApp(options = {}) {
     if (!publicClient) return res.status(503).json({ error: 'Configure Supabase first.' });
     res.json(unwrap(await publicClient.from('parking_summary').select('*')));
   }));
+  app.use('/api/cctv', cctvRoutes({ monitor: options.monitor, authorize }));
   app.get('/api/regions/log', authorize, requireAdmin, wrap(async (req, res) => res.json(unwrap(await req.db.from('region_change_log').select('*').order('changed_at', { ascending: false }).limit(100)))));
   app.get('/api/regions', authorize, wrap(async (req, res) => res.json(unwrap(await req.db.from('parking_regions').select('*').eq('is_active', true)))));
   app.post('/api/regions', authorize, requireAdmin, wrap(async (req, res) => {
@@ -61,7 +67,7 @@ function createApp(options = {}) {
   app.post('/api/alerts/:id/acknowledge', authorize, wrap(async (req, res) => res.json(unwrap(await req.db.rpc('acknowledge_alert', { p_alert_id: req.params.id })))));
   app.use('/api/inference', rateLimit({ windowMs: 60000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false,
     handler: (req, res) => res.status(429).json({ error: 'Too many analysis requests. Wait a minute, then try again.' }),
-  }), inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence: config.minimumConfidence }));
+  }), inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence: config.minimumConfidence, monitor: options.monitor }));
   app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
   const dist = path.resolve(__dirname, '../frontend/dist');
   if (fs.existsSync(path.join(dist, 'index.html'))) {

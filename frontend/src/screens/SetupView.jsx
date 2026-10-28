@@ -39,7 +39,7 @@ where id = (
         <div className="check-line"><span className={config?.model?.state === 'ready' ? 'dot good' : 'dot'} />Model: {config?.model?.state || 'backend unavailable'}</div>
         {config?.model?.model && <p className="success-text">{config.model.model.name} · version {config.model.model.version}</p>}
         {config?.model?.error && <p className="error-text">{config.model.error}</p>}
-        <p className="muted">The current model predicts empty or occupied. It does not identify non-vehicle obstructions.</p>
+        <p className="muted">{config?.model?.model?.classes?.includes('blocked') ? 'The installed model supports vacant, vehicle-occupied, and non-vehicle-blocked results using the saved parking boxes.' : 'The installed model predicts vehicle present/absent. The three-class Colab export adds non-vehicle obstruction classification.'}</p>
       </section>
     </div>
     <button className="primary" onClick={onRetry}>Refresh connection status</button>

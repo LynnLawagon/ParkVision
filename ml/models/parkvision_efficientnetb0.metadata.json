@@ -1,22 +1,19 @@
 {
-  "format_version": 1,
-  "model_name": "ParkVision_EfficientNetB0_VehiclePresence",
-  "model_version": "20261027_121730",
+  "format_version": 2,
+  "task": "parking_three_class",
+  "model_name": "ParkVision_EfficientNetB0_ThreeClass",
+  "model_version": "20261028_215818",
   "class_names": [
-    "unoccupied",
-    "occupied"
+    "vacant",
+    "occupied",
+    "blocked"
   ],
   "app_statuses": [
     "vacant",
-    "occupied"
+    "occupied",
+    "blocked"
   ],
-  "semantic_target": "target vehicle present inside the supplied crop",
-  "vehicle_categories": [
-    "car",
-    "truck",
-    "bus"
-  ],
-  "occupied_threshold": 0.5,
+  "output_activation": "softmax",
   "input_size": [
     224,
     224
@@ -29,98 +26,457 @@
   ],
   "resize_method": "bilinear",
   "preprocessing_inside_model": true,
+  "sha256": "833041baa7fed09f03df151de6b25e947dcef2fa2d760dc21d8db12ee06e4e4d",
   "tensorflow_version": "2.20.0",
   "keras_version": "3.13.2",
-  "sha256": "a3123fee638c6f0053817bc448e9130e2895e21380339961e0027fb3556cc9dd",
+  "vehicle_categories": [
+    "Car",
+    "Van",
+    "Truck",
+    "Bus",
+    "Motorcycle",
+    "Bicycle"
+  ],
+  "obstruction_categories": [
+    "Person",
+    "Man",
+    "Woman",
+    "Boy",
+    "Girl",
+    "Box",
+    "Chair",
+    "Cart",
+    "Waste container",
+    "Luggage and bags",
+    "Plastic bag",
+    "Handbag",
+    "Traffic cone"
+  ],
+  "label_policy": "blocked when a non-vehicle object obstructs the intended usable area; otherwise occupied if a vehicle occupies it; otherwise vacant",
+  "public_data_limitation": "public object/background crops are bootstrap proxies, not verified parking-ground occupancy labels",
+  "deployment_status": "candidate_requires_site_validation",
+  "site_test_evaluated": false,
   "training": {
     "selected_stage": "finetune",
-    "validation_loss": 0.1371987760066986,
+    "validation_loss": 0.08827021718025208,
+    "selection_metric": "class/source-balanced validation loss",
     "head_epochs_run": 5,
     "fine_epochs_run": 10,
-    "selection_metric": "source-balanced validation loss"
+    "initialization": "ImageNet EfficientNetB0"
   },
   "test_metrics": {
-    "threshold": 0.5,
+    "class_order": [
+      "vacant",
+      "occupied",
+      "blocked"
+    ],
     "overall": {
-      "examples": 1448,
-      "unoccupied_examples": 750,
-      "occupied_examples": 698,
-      "accuracy": 0.9599447513812155,
-      "balanced_accuracy": 0.9609856733524356,
-      "precision_occupied": 0.931266846361186,
-      "recall_occupied": 0.9899713467048711,
-      "f1_occupied": 0.9597222222222223,
-      "roc_auc": 0.9792913085004775,
-      "average_precision": 0.9670997469948859,
-      "brier_score": 0.036863240135708415,
+      "examples": 1227,
+      "accuracy": 0.960880195599022,
+      "macro_f1": 0.9653749896517779,
+      "macro_f1_classes": [
+        "vacant",
+        "occupied",
+        "blocked"
+      ],
       "confusion_matrix": [
         [
-          699,
-          51
+          435,
+          36,
+          0
         ],
         [
-          7,
-          691
+          6,
+          570,
+          1
+        ],
+        [
+          2,
+          3,
+          174
         ]
       ],
-      "predicted_unoccupied": 706,
-      "predicted_occupied": 742
+      "by_class": {
+        "vacant": {
+          "precision": 0.981941309255079,
+          "recall": 0.9235668789808917,
+          "f1": 0.9518599562363238,
+          "support": 471
+        },
+        "occupied": {
+          "precision": 0.9359605911330049,
+          "recall": 0.9878682842287695,
+          "f1": 0.9612141652613828,
+          "support": 577
+        },
+        "blocked": {
+          "precision": 0.9942857142857143,
+          "recall": 0.9720670391061452,
+          "f1": 0.9830508474576272,
+          "support": 179
+        }
+      }
     },
     "by_source": {
-      "coco": {
-        "examples": 248,
-        "unoccupied_examples": 150,
-        "occupied_examples": 98,
-        "accuracy": 0.967741935483871,
-        "balanced_accuracy": 0.9662585034013605,
-        "precision_occupied": 0.9591836734693877,
-        "recall_occupied": 0.9591836734693877,
-        "f1_occupied": 0.9591836734693877,
-        "roc_auc": 0.9913605442176869,
-        "average_precision": 0.9898242867785532,
-        "brier_score": 0.02865282336926527,
+      "openimages": {
+        "examples": 387,
+        "accuracy": 0.9689922480620154,
+        "macro_f1": 0.9652130149392923,
+        "macro_f1_classes": [
+          "vacant",
+          "occupied",
+          "blocked"
+        ],
         "confusion_matrix": [
           [
-            146,
-            4
+            70,
+            1,
+            0
           ],
           [
-            4,
-            94
+            5,
+            171,
+            1
+          ],
+          [
+            2,
+            3,
+            134
           ]
         ],
-        "predicted_unoccupied": 150,
-        "predicted_occupied": 98
+        "by_class": {
+          "vacant": {
+            "precision": 0.9090909090909091,
+            "recall": 0.9859154929577465,
+            "f1": 0.9459459459459459,
+            "support": 71
+          },
+          "occupied": {
+            "precision": 0.9771428571428571,
+            "recall": 0.9661016949152542,
+            "f1": 0.9715909090909091,
+            "support": 177
+          },
+          "blocked": {
+            "precision": 0.9925925925925926,
+            "recall": 0.9640287769784173,
+            "f1": 0.9781021897810219,
+            "support": 139
+          }
+        }
       },
       "pklot": {
-        "examples": 1200,
-        "unoccupied_examples": 600,
-        "occupied_examples": 600,
-        "accuracy": 0.9583333333333334,
-        "balanced_accuracy": 0.9583333333333333,
-        "precision_occupied": 0.9270186335403726,
-        "recall_occupied": 0.995,
-        "f1_occupied": 0.9598070739549839,
-        "roc_auc": 0.9754888888888888,
-        "average_precision": 0.9619045375745187,
-        "brier_score": 0.03856005960077334,
+        "examples": 800,
+        "accuracy": 0.955,
+        "macro_f1": 0.9549185716700791,
+        "macro_f1_classes": [
+          "vacant",
+          "occupied"
+        ],
         "confusion_matrix": [
           [
-            553,
-            47
+            365,
+            35,
+            0
           ],
           [
-            3,
-            597
+            1,
+            399,
+            0
+          ],
+          [
+            0,
+            0,
+            0
           ]
         ],
-        "predicted_unoccupied": 556,
-        "predicted_occupied": 644
+        "by_class": {
+          "vacant": {
+            "precision": 0.9972677595628415,
+            "recall": 0.9125,
+            "f1": 0.9530026109660574,
+            "support": 400
+          },
+          "occupied": {
+            "precision": 0.9193548387096774,
+            "recall": 0.9975,
+            "f1": 0.9568345323741008,
+            "support": 400
+          },
+          "blocked": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        }
+      },
+      "tracon": {
+        "examples": 40,
+        "accuracy": 1.0,
+        "macro_f1": 1.0,
+        "macro_f1_classes": [
+          "blocked"
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            40
+          ]
+        ],
+        "by_class": {
+          "vacant": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "occupied": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "blocked": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 40
+          }
+        }
       }
+    },
+    "positive_subtype_checks": [
+      {
+        "subtype": "Bicycle",
+        "examples": 16,
+        "correct_class_fraction": 0.8125
+      },
+      {
+        "subtype": "Box",
+        "examples": 10,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Boy",
+        "examples": 17,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Bus",
+        "examples": 7,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Car",
+        "examples": 99,
+        "correct_class_fraction": 0.9696969696969697
+      },
+      {
+        "subtype": "Cart",
+        "examples": 13,
+        "correct_class_fraction": 0.9230769230769231
+      },
+      {
+        "subtype": "Chair",
+        "examples": 17,
+        "correct_class_fraction": 0.9411764705882353
+      },
+      {
+        "subtype": "Girl",
+        "examples": 17,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Handbag",
+        "examples": 5,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Luggage and bags",
+        "examples": 5,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Man",
+        "examples": 17,
+        "correct_class_fraction": 0.9411764705882353
+      },
+      {
+        "subtype": "Motorcycle",
+        "examples": 6,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Person",
+        "examples": 17,
+        "correct_class_fraction": 0.8823529411764706
+      },
+      {
+        "subtype": "Plastic bag",
+        "examples": 1,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Traffic cone",
+        "examples": 40,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Truck",
+        "examples": 35,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Van",
+        "examples": 14,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Waste container",
+        "examples": 3,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "Woman",
+        "examples": 17,
+        "correct_class_fraction": 1.0
+      },
+      {
+        "subtype": "annotation_free_background",
+        "examples": 71,
+        "correct_class_fraction": 0.9859154929577465
+      }
+    ],
+    "review_filter": {
+      "threshold": 0.8,
+      "accepted": 1199,
+      "needs_review": 28,
+      "accepted_accuracy": 0.9641367806505421,
+      "coverage": 0.9771801140994295
     }
   },
-  "site_test_evaluated": false,
-  "deployment_status": "candidate_requires_site_validation",
+  "data_coverage": [
+    {
+      "source": "openimages",
+      "split": "test",
+      "label": 0,
+      "examples": 71
+    },
+    {
+      "source": "openimages",
+      "split": "test",
+      "label": 1,
+      "examples": 177
+    },
+    {
+      "source": "openimages",
+      "split": "test",
+      "label": 2,
+      "examples": 139
+    },
+    {
+      "source": "openimages",
+      "split": "train",
+      "label": 0,
+      "examples": 405
+    },
+    {
+      "source": "openimages",
+      "split": "train",
+      "label": 1,
+      "examples": 841
+    },
+    {
+      "source": "openimages",
+      "split": "train",
+      "label": 2,
+      "examples": 674
+    },
+    {
+      "source": "openimages",
+      "split": "val",
+      "label": 0,
+      "examples": 78
+    },
+    {
+      "source": "openimages",
+      "split": "val",
+      "label": 1,
+      "examples": 175
+    },
+    {
+      "source": "openimages",
+      "split": "val",
+      "label": 2,
+      "examples": 144
+    },
+    {
+      "source": "pklot",
+      "split": "test",
+      "label": 0,
+      "examples": 400
+    },
+    {
+      "source": "pklot",
+      "split": "test",
+      "label": 1,
+      "examples": 400
+    },
+    {
+      "source": "pklot",
+      "split": "train",
+      "label": 0,
+      "examples": 2500
+    },
+    {
+      "source": "pklot",
+      "split": "train",
+      "label": 1,
+      "examples": 2500
+    },
+    {
+      "source": "pklot",
+      "split": "val",
+      "label": 0,
+      "examples": 400
+    },
+    {
+      "source": "pklot",
+      "split": "val",
+      "label": 1,
+      "examples": 400
+    },
+    {
+      "source": "tracon",
+      "split": "test",
+      "label": 2,
+      "examples": 40
+    },
+    {
+      "source": "tracon",
+      "split": "train",
+      "label": 2,
+      "examples": 190
+    },
+    {
+      "source": "tracon",
+      "split": "val",
+      "label": 2,
+      "examples": 40
+    }
+  ],
   "save_reload_parity_passed": true,
   "augmentation_removed": true
 }

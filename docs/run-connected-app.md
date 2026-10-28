@@ -156,6 +156,10 @@ stored in the schema; adding an obstruction-capable model is separate work.
 
 ## 6. Recorded video and device camera
 
+For recorder/IP-camera sources that run independently of the browser, see
+[CCTV setup and background monitoring](cctv.md). It supports server-side RTSP
+inputs and a clearly marked file-replay demo with the same model/database flow.
+
 Upload a supported MP4/MOV/WebM file; browser support varies by codec. Use the video
 controls to select a reference frame. Define/save its regions. Click **Analyze
 video replay** to analyze the playing video about every two seconds. Turn on
@@ -176,9 +180,10 @@ No microphone is requested.
 
 On your laptop, localhost can access its camera. For the mounted phone, the app
 must be accessible at an **HTTPS address** and the Python/backend server must be
-reachable through that deployment. Opening the laptop's plain HTTP LAN address
-on a phone is not sufficient for camera permissions. HTTPS hosting/network setup
-and validation on the actual mounted phone are still pending. See the browser
+reachable through that deployment. Use the [phone-camera walkthrough](phone-camera.md)
+to start temporary HTTPS test access with `npm run phone`. Opening the laptop's
+plain HTTP LAN address on a phone is not sufficient for camera permissions.
+Permanent hosting and validation on the actual mounted phone remain pending. See the browser
 [camera-access requirements](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia).
 
 ## Tests and boundaries
@@ -199,3 +204,7 @@ Database rules are documented in [database.md](database.md); transactional SQL
 checks are in `supabase/tests/schema_checks.sql`. Live Supabase verification needs
 your actual `.env` credentials and administrator account. Original experiment
 details and export instructions remain in [ml-integration.md](ml-integration.md).
+
+## Next model: non-vehicle obstruction
+
+Use [obstruction-training.md](obstruction-training.md) and its new three-class EfficientNetB0 Colab notebook. The app supports vacant/vehicle/blocked output from the same saved regions after installing a matching three-class model and metadata pair. Existing binary weights stay binary until replaced. No SQL reset is needed. CCTV is deferred and disabled by default (`ENABLE_CCTV=false`); uploaded video and device-camera workflows remain available. See [project-finish-checklist.md](project-finish-checklist.md) for the remaining demonstration and site validation work.

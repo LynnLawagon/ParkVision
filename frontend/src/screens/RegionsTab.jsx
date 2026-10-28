@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Upload, ScanLine, Save, Play, Square, Plus, Camera, Pencil, Archive, CircleHelp } from 'lucide-react';
 import { api, unwrap, age } from '../lib/api';
+import CctvPanel from './CctvPanel';
 
 const clamp = number => Math.max(0, Math.min(1, number));
 const rounded = number => Number(number.toFixed(6));
-const colors = { vacant: '#4FA675', occupied: '#5D7A94', review: '#D99C28', waiting: '#C5D3DB' };
+const colors = { vacant: '#4FA675', occupied: '#5D7A94', blocked: '#C66A43', review: '#D99C28', waiting: '#C5D3DB' };
 export default function RegionsTab({ client, session, isAdmin, lot, spaces, config }) {
   const [cameras, setCameras] = useState([]);
   const [cameraId, setCameraId] = useState('');
@@ -24,6 +25,7 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
   const [message, setMessage] = useState('');
   const [running, setRunning] = useState(false);
   const [autoPublish, setAutoPublish] = useState(false);
+  const [cctvStatus, setCctvStatus] = useState(null);
   const [showCameraForm, setShowCameraForm] = useState(false);
   const [cameraCode, setCameraCode] = useState('');
   const [cameraName, setCameraName] = useState('');
@@ -40,6 +42,7 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
   const selectedRegion = cameraRegions.find(region => region.parking_space_id === spaceId);
   const workingRegions = draft ? [...cameraRegions.filter(region => region.parking_space_id !== draft.parking_space_id), draft] : cameraRegions;
   const accepted = analysis?.results.filter(item => !item.requiresReview).length || 0;
+  const obstructionReady = config.model?.model?.classes?.includes('blocked');
 
   async function reload() {
     if (!lot) return;
@@ -87,6 +90,11 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
       video.current.play().catch(error => setError(error.message));
     }
   }, [live]);
+  useEffect(() => {
+    if (!cctvStatus?.running) return;
+    closeDeviceCamera(); setVideoSrc(''); setFrame(null); setAnalysis(null); setDraft(null); setDrawing(false);
+    setFilename('');
+  }, [cctvStatus?.running, cameraId]);
 
   async function openDeviceCamera() {
     if (openingCamera) return;
@@ -235,8 +243,16 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
     finally { stopReplay(); }
   }
   const disabled = busy || saving || running || openingCamera;
+  const mediaDisabled = disabled || cctvStatus?.running;
+  function useCctvFrame(blob, width, height) {
+    closeDeviceCamera(); mediaGeneration.current++;
+    if (videoUrl.current) URL.revokeObjectURL(videoUrl.current);
+    videoUrl.current = null; setVideoSrc(''); setAnalysis(null); setDraft(null);
+    setFilename(cctvStatus?.kind === 'demo_replay' ? 'CCTV demo replay reference' : 'CCTV reference frame');
+    replaceFrame(blob, width, height);
+  }
   return <div className="camera-workspace">
-    <div className="notice subtle"><ScanLine size={18} /><span><strong>{config.model?.state === 'ready' ? 'Your S2 model is ready.' : 'Parking analysis workspace.'}</strong> It checks empty vs occupied. Predictions below {Math.round(config.minimumConfidence * 100)}% class score need review and are skipped when publishing. Obstruction detection is not available in this model.</span></div>
+    <div className="notice subtle"><ScanLine size={18} /><span><strong>{config.model?.state === 'ready' ? 'Your parking model is ready.' : 'Parking analysis workspace.'}</strong> {obstructionReady ? 'It classifies each saved box as vacant, occupied by a vehicle, or blocked by a non-vehicle obstruction.' : 'The installed model checks vehicle present vs absent. Install the three-class export to enable non-vehicle obstruction classification.'} Predictions below {Math.round(config.minimumConfidence * 100)}% class score need review and are skipped when publishing.</span></div>
     {!lot ? <div className="empty-state">Select a parking area with a saved layout.</div> : <>
       <div className="camera-toolbar"><label>Camera<select value={cameraId} disabled={disabled} onChange={event => setCameraId(event.target.value)}><option value="" disabled>Choose a camera</option>{cameras.map(camera => <option value={camera.id} key={camera.id}>{camera.code} · {camera.name}</option>)}</select></label>
         {isAdmin && <button disabled={disabled} onClick={() => setShowCameraForm(value => !value)}><Plus size={16} />Add camera</button>}
@@ -246,8 +262,10 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
       {error && <div className="notice error" role="alert">{error}</div>}
       {message && <div className="notice success" role="status">{message}</div>}
       {config.model?.error && <div className="notice error">{config.model.error}</div>}
+      {config.cctvEnabled && cameraId && <CctvPanel key={cameraId} cameraId={cameraId} session={session} isAdmin={isAdmin} disabled={disabled || Boolean(draft)} regions={cameraRegions} spaces={spaces} onStatus={setCctvStatus} onUseFrame={useCctvFrame} />}
       <div className="editor-grid"><section className="panel frame-panel">
-        <div className="section-heading"><div><h2>1. Choose a reference frame</h2><p className="muted">Use the same mounted position, orientation, and zoom for this camera.</p></div><div className="button-row"><label className={`button upload-button ${!cameraId || disabled ? 'disabled' : ''}`}><Upload size={16} />Upload photo / video<input key={cameraId} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" disabled={!cameraId || disabled} onChange={uploadFile} /></label>{!live && <button disabled={!cameraId || disabled} onClick={openDeviceCamera}><Camera size={16} />Use device camera</button>}</div></div>
+        <div className="section-heading"><div><h2>1. Choose a reference frame</h2><p className="muted">Use the same mounted position, orientation, and zoom for this camera.</p></div><div className="button-row"><label className={`button upload-button ${!cameraId || mediaDisabled ? 'disabled' : ''}`}><Upload size={16} />Upload photo / video<input key={cameraId} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" disabled={!cameraId || mediaDisabled} onChange={uploadFile} /></label>{!live && <button disabled={!cameraId || mediaDisabled} onClick={openDeviceCamera}><Camera size={16} />Use device camera</button>}</div></div>
+        {cctvStatus?.running && <p className="notice subtle">This camera is monitored by the backend. Use its CCTV reference frame to configure boxes. Stop CCTV monitoring before switching to uploaded media or a device camera.</p>}
         {filename && <p className="file-label">{filename} {frame && `· ${frame.width} × ${frame.height}`}</p>}
         {(videoSrc || live) && <div className="video-tools"><video ref={video} src={live ? undefined : videoSrc} controls={!live} autoPlay={live} muted playsInline onLoadedData={() => captureVideoFrame().catch(error => setError(error.message))} onError={() => setError('This browser cannot decode the video. Export it as MP4 (H.264), or upload a photo.')} /><button disabled={disabled} onClick={() => { if (!live) video.current.pause(); captureVideoFrame().then(() => setAnalysis(null)).catch(error => setError(error.message)); }}>{live ? 'Grab camera frame' : 'Use current video frame'}</button>{live && <button onClick={closeDeviceCamera}>Close device camera</button>}</div>}
         {frame ? <div className={`frame-canvas ${drawing ? 'drawing' : ''}`}>
@@ -280,16 +298,16 @@ export default function RegionsTab({ client, session, isAdmin, lot, spaces, conf
         </> : <p className="notice">An administrator can add or adjust parking regions. You can analyze the saved regions.</p>}
         <div className="region-list">{cameraRegions.map(region => <div key={region.id} className={`region-list-row ${spaceId === region.parking_space_id ? 'active' : ''}`}><button className="region-select" disabled={disabled} onClick={() => chooseSpace(region.parking_space_id)}><strong>{spaces.find(space => space.id === region.parking_space_id)?.code}</strong><span>Saved region</span></button>{isAdmin && <button className="icon-button" disabled={disabled} aria-label={`Archive region ${spaces.find(space => space.id === region.parking_space_id)?.code}`} onClick={() => archiveRegion(region)}><Archive size={15} /></button>}</div>)}</div>
         {!cameraRegions.length && <p className="muted small">No saved boxes yet. Choose a space, draw its full parking area, and save it.</p>}
-        <div className="small calibration-note"><CircleHelp size={16} />The seed’s A1/A2 rectangles are examples. Redraw them using your actual mounted-phone view.</div>
+        <div className="small calibration-note"><CircleHelp size={16} />The seed’s A1/A2 rectangles are examples. Redraw them using the actual fixed camera view.</div>
       </aside></div>
       <section className="panel analysis-panel"><div className="section-heading"><div><h2>3. Analyze and publish</h2><p className="muted">Preview first. Publish only observations that meet the review threshold.</p></div><div className="button-row">
-        <button className="primary" disabled={!frame || !workingRegions.length || disabled || config.model?.state !== 'ready'} onClick={() => runAnalysis().catch(() => {})}><ScanLine size={17} />{busy ? 'Analyzing…' : 'Analyze this frame'}</button>
-        <button disabled={!analysis?.canPublish || !accepted || disabled || Boolean(analysis.published)} onClick={() => publish().catch(() => {})}><Save size={16} />{analysis?.published ? 'Published' : `Publish ${accepted || ''} accepted result${accepted === 1 ? '' : 's'}`}</button>
+        <button className="primary" disabled={!frame || !workingRegions.length || mediaDisabled || config.model?.state !== 'ready'} onClick={() => runAnalysis().catch(() => {})}><ScanLine size={17} />{busy ? 'Analyzing…' : 'Analyze this frame'}</button>
+        <button disabled={!analysis?.canPublish || !accepted || mediaDisabled || Boolean(analysis.published)} onClick={() => publish().catch(() => {})}><Save size={16} />{analysis?.published ? 'Published' : `Publish ${accepted || ''} accepted result${accepted === 1 ? '' : 's'}`}</button>
       </div></div>
       {!config.writeEnabled && <p className="notice warning">{config.publicationError || 'Model previews work after sign-in. Add the server-only Supabase key in backend/.env to publish results.'}</p>}
       {analysis && <><div className="analysis-meta"><span>{analysis.model.name} · {analysis.model.version}</span><span>{analysis.inferenceMs} ms inference</span><span>Analyzed {age(analysis.capturedAt)}</span><span>{analysis.results.length - accepted} need review</span></div>
         {!analysis.savedRegions && <p className="notice warning">This preview includes unsaved boxes. Save the regions and analyze again before publishing.</p>}
-        <div className="table-scroll"><table><thead><tr><th>Space</th><th>Model prediction</th><th>Occupancy score</th><th>Class score</th><th>Action</th></tr></thead><tbody>{analysis.results.map(result => <tr key={result.regionId}><td><strong>{spaces.find(space => space.id === workingRegions.find(region => region.id === result.regionId)?.parking_space_id)?.code || result.regionId.slice(0, 8)}</strong></td><td><span className={`badge ${result.requiresReview ? 'warning' : result.status === 'vacant' ? 'good' : ''}`}>{result.status}</span></td><td>{(result.occupancyScore * 100).toFixed(1)}%</td><td>{(result.confidence * 100).toFixed(1)}%</td><td>{result.requiresReview ? 'Needs review · not published' : analysis.published ? 'Saved' : 'Eligible to publish'}</td></tr>)}</tbody></table></div>
+        <div className="table-scroll"><table><thead><tr><th>Space</th><th>Model prediction</th><th>Vehicle score</th>{obstructionReady && <th>Obstruction score</th>}<th>Class score</th><th>Action</th></tr></thead><tbody>{analysis.results.map(result => <tr key={result.regionId}><td><strong>{spaces.find(space => space.id === workingRegions.find(region => region.id === result.regionId)?.parking_space_id)?.code || result.regionId.slice(0, 8)}</strong></td><td><span className={`badge ${result.requiresReview || result.status === 'blocked' ? 'warning' : result.status === 'vacant' ? 'good' : ''}`}>{result.status}</span></td><td>{(result.occupancyScore * 100).toFixed(1)}%</td>{obstructionReady && <td>{((result.obstructionScore || 0) * 100).toFixed(1)}%</td>}<td>{(result.confidence * 100).toFixed(1)}%</td><td>{result.requiresReview ? 'Needs review · not published' : analysis.published ? 'Saved' : 'Eligible to publish'}</td></tr>)}</tbody></table></div>
         <p className="small muted">Scores describe the model output, not verified accuracy. Unknown and review results never become available spaces automatically. An uploaded image is a point-in-time observation; it becomes stale after 10 seconds.</p>
       </>}
       {(videoSrc || live) && <div className="replay-controls"><div><h3>{live ? 'Live device-camera monitoring' : 'Recorded-video monitoring'}</h3><p className="muted small">{live ? 'Keep the phone fixed. Capture and analyze a new frame about every 2 seconds.' : 'Analyze the playing clip about every 2 seconds. This is video replay, not a live camera connection.'}</p><label className="checkbox"><input type="checkbox" checked={autoPublish} disabled={running || !config.writeEnabled} onChange={event => setAutoPublish(event.target.checked)} />{live ? 'Publish accepted camera observations to the dashboard' : 'Publish accepted replay observations to the dashboard'}</label></div>{running ? <button onClick={stopReplay}><Square size={15} />{live ? 'Stop monitoring' : 'Stop replay'}</button> : <button disabled={!frame || !cameraRegions.length || Boolean(draft) || busy || saving || config.model?.state !== 'ready'} onClick={startReplay}><Play size={15} />{live ? 'Start camera monitoring' : 'Analyze video replay'}</button>}</div>}
