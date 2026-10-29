@@ -54,7 +54,7 @@ test('region validation rejects invalid geometry and duplicate IDs', () => {
   assert.throws(() => validateRegions([{ ...region, width: '0.3' }]));
 });
 
-async function fixture(t, monitor, predictedStatus = 'occupied') {
+async function fixture(t, monitor, predictedStatus = 'occupied', clock = Date.now) {
   const cameraId = randomUUID(), good = randomUUID(), uncertain = randomUUID();
   const regions = [{ id: good, camera_id: cameraId, is_active: true, x: 0, y: 0, width: 0.4, height: 0.8 }, { id: uncertain, camera_id: cameraId, is_active: true, x: 0.5, y: 0, width: 0.4, height: 0.8 }];
   const tables = { cameras: [{ id: cameraId, is_active: true }], parking_regions: regions, camera_frames: [], space_observations: [] };
@@ -71,7 +71,7 @@ async function fixture(t, monitor, predictedStatus = 'occupied') {
     req.profile = { role_code: role === 'admin' ? 'parking_administrator' : 'parking_personnel' };
     req.db = db; next();
   };
-  const server = createApp({ worker, monitor, publicClient: null, serviceClient: db, authorize }).listen(0, '127.0.0.1');
+  const server = createApp({ worker, monitor, clock, publicClient: null, serviceClient: db, authorize }).listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -144,4 +144,36 @@ test('accepted obstruction results publish blocked and uncertain obstructions ar
   assert.equal(saved.body.skipped, 1);
   assert.equal(f.tables.space_observations[0].status, 'blocked');
   assert.equal(f.tables.space_observations.length, 1);
+});
+
+for (const status of ['vacant', 'occupied', 'blocked']) test(`expired ${status} previews cannot publish or refresh dashboard timestamps`, async t => {
+  let now = Date.now();
+  const f = await fixture(t, null, status, () => now);
+  const preview = await f.analyze();
+  assert.equal(preview.status, 200);
+  now += 10000;
+  const result = await f.publish(preview.body.analysisId);
+  assert.equal(result.status, 400);
+  assert.match(result.body.error, /older than 10 seconds/);
+  assert.equal(f.tables.camera_frames.length, 0);
+  assert.equal(f.tables.space_observations.length, 0);
+});
+test('publication retries remain idempotent after the saved observation becomes stale', async t => {
+  let now = Date.now();
+  const f = await fixture(t, null, 'blocked', () => now);
+  const preview = await f.analyze();
+  const saved = await f.publish(preview.body.analysisId);
+  now += 11000;
+  assert.deepEqual((await f.publish(preview.body.analysisId)).body, saved.body);
+  assert.equal(f.tables.space_observations.length, 1);
+  assert.equal(f.tables.camera_frames[0].captured_at, preview.body.capturedAt);
+});
+test('deactivating a camera prevents publication of its earlier preview', async t => {
+  const f = await fixture(t);
+  const preview = await f.analyze();
+  f.tables.cameras[0].is_active = false;
+  const saved = await f.publish(preview.body.analysisId);
+  assert.equal(saved.status, 400);
+  assert.match(saved.body.error, /inactive/);
+  assert.equal(f.tables.space_observations.length, 0);
 });

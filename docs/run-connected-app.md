@@ -208,3 +208,11 @@ details and export instructions remain in [ml-integration.md](ml-integration.md)
 ## Next model: non-vehicle obstruction
 
 Use [obstruction-training.md](obstruction-training.md) and its new three-class EfficientNetB0 Colab notebook. The app supports vacant/vehicle/blocked output from the same saved regions after installing a matching three-class model and metadata pair. Existing binary weights stay binary until replaced. No SQL reset is needed. CCTV is deferred and disabled by default (`ENABLE_CCTV=false`); uploaded video and device-camera workflows remain available. See [project-finish-checklist.md](project-finish-checklist.md) for the remaining demonstration and site validation work.
+
+## Workspace behavior after UI cleanup
+
+The source badge identifies a photo, recorded replay, or device camera. Monitoring status explicitly distinguishes preview-only analysis from automatic publication. The main predictions table shows the class and class score; expand **Model scores and timing** for the underlying vehicle/obstruction scores and model checksum.
+
+A preview older than ten seconds cannot create a new publication. Analyze again before publishing; old results remain visible for inspection. New reference frames discard previous predictions. Replay pause/stop/end prevents pending analysis from being automatically published. Keep the workspace open during monitoring and open availability in another tab using its link. A static photo is a point-in-time observation.
+
+The public screen shows how many positions have recent observations and expires old/invalid observations independently of database polling. Unverified positions never count as available. A routine sign-in token refresh rechecks the profile without remounting the active workspace.

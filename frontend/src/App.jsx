@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { CarFront, Settings2, LogOut } from 'lucide-react';
 import { useFonts } from './useFonts';
@@ -16,6 +16,7 @@ export default function App() {
   const [screen, setScreen] = useState('customer');
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
+  const profileUser = useRef(null);
   const [profileError, setProfileError] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileRefresh, setProfileRefresh] = useState(0);
@@ -40,9 +41,14 @@ export default function App() {
   }, [client]);
   useEffect(() => {
     let active = true;
-    setProfile(null); setProfileError('');
+    const userId = session?.user.id || null;
+    const changedUser = profileUser.current !== userId;
+    profileUser.current = userId;
+    if (changedUser || !session) setProfile(null);
+    setProfileError('');
     if (!session || !client) { setProfileLoading(false); return; }
-    setProfileLoading(true);
+    // A routine token refresh must not unmount the active camera workspace.
+    if (changedUser) setProfileLoading(true);
     client.from('profiles').select('id, display_name, role_code').eq('id', session.user.id).single().then(response => {
       if (!active) return;
       if (response.error) setProfileError('Could not load your personnel profile. Check the database setup.');
@@ -88,6 +94,7 @@ export default function App() {
         <button className="icon-button" aria-label="Connection setup" onClick={() => setScreen('setup')}><Settings2 size={18} /></button>
         {session && <button className="icon-button" aria-label="Sign out" onClick={signOut}><LogOut size={17} /></button>}
       </nav></header>
+    {screen === 'personnel' && monitor && profileError && <div className="page profile-warning"><p className="notice warning" role="status">{profileError} Your last loaded profile is shown. Server permissions are checked on each request.</p></div>}
     {setup ? <SetupView config={config} error={configError} onRetry={() => { loadConfig(); setRefresh(n => n + 1); }} />
       : !config ? <main className="page"><p className="muted">Connecting to ParkVision…</p></main>
       : screen === 'personnel' ? !session ? <LoginView client={client} /> : profileLoading ? <main className="page">Loading your profile…</main> : !monitor ? <main className="page"><div className="panel"><h1>Your account needs a personnel role</h1><p>{profileError || 'An administrator must assign your profile a role before you can monitor or configure parking.'}</p><button onClick={() => setScreen('setup')}>View administrator setup</button><button onClick={() => setProfileRefresh(n => n + 1)}>Refresh access</button></div></main>

@@ -67,7 +67,7 @@ function createApp(options = {}) {
   app.post('/api/alerts/:id/acknowledge', authorize, wrap(async (req, res) => res.json(unwrap(await req.db.rpc('acknowledge_alert', { p_alert_id: req.params.id })))));
   app.use('/api/inference', rateLimit({ windowMs: 60000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false,
     handler: (req, res) => res.status(429).json({ error: 'Too many analysis requests. Wait a minute, then try again.' }),
-  }), inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence: config.minimumConfidence, monitor: options.monitor }));
+  }), inferenceRoutes({ worker, authorize, serviceClient, minimumConfidence: config.minimumConfidence, monitor: options.monitor, clock: options.clock }));
   app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
   const dist = path.resolve(__dirname, '../frontend/dist');
   if (fs.existsSync(path.join(dist, 'index.html'))) {
